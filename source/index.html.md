@@ -1,54 +1,104 @@
 ---
-title: API Reference
+title: Bypass API Reference
 
 language_tabs:
-  - shell
-  - ruby
-  - python
+  - pseudocode
+  - javascript
 
 toc_footers:
-  - <a href='#'>Sign Up for a Developer Key</a>
+  - <a href='https://github.com/bypasslane'>Bypass Github</a>
   - <a href='https://github.com/tripit/slate'>Documentation Powered by Slate</a>
-
-includes:
-  - errors
 
 search: true
 ---
 
 # Introduction
 
-Welcome to the Kittn API! You can use our API to access Kittn API endpoints, which can get information on various cats, kittens, and breeds in our database.
+Welcome to the Bypass API!
+This documentation covers the basics of creating a mobile POS application.
+Specifically we cover the guest checkout sequence for in-seat delivery to a customer in a stadium environment.
 
-We have language bindings in Shell, Ruby, and Python! You can view code examples in the dark area to the right, and you can switch the programming language of the examples with the tabs in the top right.
+Example API usage is provided in JavaScript. You can view code example sin the dark area to the right.
 
-This example API documentation page was created with [Slate](https://github.com/tripit/slate). Feel free to edit it and use it as a base for your own API's documentation.
+# Design principles and approach
 
-# Authentication
+## Protocol and data
 
-> To authorize, use this code:
+> API endpoint examples include
 
-```ruby
-require 'kittn'
+```pseudocode
+GET /api/venue/orders
 
-api = Kittn::APIClient.authorize!('meowmeowmeow')
+GET /api/venue/location/:location_id/orders
+
+POST /api/venue/location/:location_id/orders
+
+PUT /api/venue/orders/:order_uuid/payments/:payment_uuid
 ```
 
-```python
-import kittn
+The Bypass API is a REST architecture with JSON as the format for data exchange.
+Most all resource endpoints implement standard HTTP CRUD (Create / POST, Read / GET, Update / PUT, Delete / DELETE) methods, though some are reserved.
 
-api = kittn.authorize('meowmeowmeow')
-```
 
-```shell
-# With shell, you can just pass the correct header with each request
-curl "api_endpoint_here"
-  -H "Authorization: meowmeowmeow"
-```
+## Security
 
-> Make sure to replace `meowmeowmeow` with your API key.
+Security is a primary concern of the Bypass API. All API calls use HTTPS and most use an API session token to authenticate the user.
 
-Kittn uses API keys to allow access to the API. You can register a new Kittn API key at our [developer portal](http://example.com/developers).
+Additionally, any handling of credit card data is sent to a dedicated, PCI-compliant service (Zuul).
+
+## Reliability in poor network conditions
+
+Network reliability is a constant problem in high traffic sports and entertainment venues.
+The Bypass API solves this problem through a distributed architecture and idempotent design for ordering endpoints.
+More than an edge-case, it is assumed that network calls will fail frequently and therefore it is critical that any call can be retried without concern for duplicated data or unexpected behavior.
+This pattern is enabled via the use of UUIDs for resources created at the edge of the network (e.g., at the POS device application) and then propagated to the server and all other devices.
+
+## Scalability
+
+Bypass achieves scalability via our distributed SOA for resource management.
+Distributed resource creation and eventual consistency for data propagation permit the horizontal and vertical scaling of independent services based on the changing needs of the system.
+
+This approach enables two key elements of the API:
+1. Consistently fast writes for orders without the need for server-side order math driven by config lookups
+2. Background processing of redundant data to offload longer tasks and retain backups of data for recovery scenarios
+
+
+# The guest checkout sequence
+
+1. Fetch venue
+2. Choose service location
+3. Lookup menu for service location
+4. Create Order locally
+5. Authorize payment
+6. Send order to Bypass
+
+<!-- # Authentication -->
+
+<!-- > To authorize, use the following example code:
+
+```javascript
+var rp = require('request-promise');
+
+var authToken = new Buffer(
+  "example_user_name" + ":" + "example_password"
+).toString('base64');
+
+var options = {
+  url: 'https://auth.bypassmobile.com/auth.json',
+  method: 'POST',
+  headers: {
+    'Accept': 'application/json, text/javascript, */*; q=0.01',
+    'Authorization': 'Basic ' + authToken
+  },
+  json: true
+};
+
+rp(options).then(function(session) {
+  var token = session.session_token
+});
+``` -->
+
+<!-- Bypass uses an API session to allow access to the API. You can register a new Kittn API key at our [developer portal](http://example.com/developers).
 
 Kittn expects for the API key to be included in all API requests to the server in a header that looks like the following:
 
@@ -117,52 +167,26 @@ available | true | If set to false, the result will include kittens that have al
 
 <aside class="success">
 Remember — a happy kitten is an authenticated kitten!
-</aside>
+</aside> -->
 
-## Get a Specific Kitten
+<!-- > In the event of a network failure, it is safe to retry a payment:
 
-```ruby
-require 'kittn'
-
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-api.kittens.get(2)
-```
-
-```python
-import kittn
-
-api = kittn.authorize('meowmeowmeow')
-api.kittens.get(2)
-```
-
-```shell
-curl "http://example.com/api/kittens/2"
-  -H "Authorization: meowmeowmeow"
-```
-
-> The above command returns JSON structured like this:
-
-```json
-{
-  "id": 2,
-  "name": "Max",
-  "breed": "unknown",
-  "fluffiness": 5,
-  "cuteness": 10
+```javascript
+var transaction = {
+  uuid: "transactionUUID",
+  transaction: {
+    uuid: "transactionUUID",
+    gateway_account_login: 'example gateway account',
+    order_id: '1',
+    amount: 100, // <-- $1.00 (amount is in pennies)
+    credit_card: {}
 }
-```
 
-This endpoint retrieves a specific kitten.
-
-<aside class="warning">Inside HTML code blocks like this one, you can't use Markdown, so use <code>&lt;code&gt;</code> blocks to denote code.</aside>
-
-### HTTP Request
-
-`GET http://example.com/kittens/<ID>`
-
-### URL Parameters
-
-Parameter | Description
---------- | -----------
-ID | The ID of the kitten to retrieve
-
+request.put('https://zuul.bypassmobile.com/sales/transactionUUID', transaction)
+  .then(successHandler)
+  .catch(function (error) {
+    // If we had an error, retry
+    return request.put('https://zuul.bypassmobile.com/sales/transactionUUID', transaction)
+      .then(successHandler);
+  });
+``` -->
